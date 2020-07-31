@@ -4,14 +4,11 @@ import (
 	"database/sql"
 	"github.com/bwmarrin/discordgo"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang/freetype/truetype"
-	"github.com/jasonodonnell/go-opendota"
 	"github.com/l2x/dota2api"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -52,10 +49,6 @@ func init() {
 	if err != nil {
 		L.Fatal(err)
 	}
-
-	//connect to opendota
-	cli := &http.Client{}
-	OD = opendota.NewClient(cli)
 
 	//connect to the dota api
 	D, err = dota2api.LoadConfig("config.ini")
