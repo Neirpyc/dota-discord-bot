@@ -42,7 +42,7 @@ func screenshotFile(file string) []byte {
 	go serveDirectory("assets/", port, stop)
 	portStr := <-port
 	var buf []byte
-	err := chromedp.Run(ctx, chromedp.EmulateViewport(4093, 2160),
+	err := chromedp.Run(ctx, chromedp.EmulateViewport(4096, 2160),
 		elementScreenshot("http://localhost:"+portStr+"/"+file, `#render`, &buf))
 	stop <- true
 	if err != nil {
