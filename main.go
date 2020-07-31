@@ -29,8 +29,10 @@ var (
 )
 
 type config struct {
-	Token   string `yaml:"Token"`
-	MariaDb string `yaml:"MariaDb"`
+	Token        string `yaml:"Token"`
+	MariaDb      string `yaml:"MariaDb"`
+	RemoveHeroes bool   `yaml:"RemoveHeroes"`
+	ForceReload  bool   `yaml:"ForceReload"`
 }
 
 func init() {
@@ -133,14 +135,14 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
-	err = os.RemoveAll("assets/tmp/")
-	if err != nil {
+	if err = os.RemoveAll("assets/tmp/"); err != nil {
 		L.Println(err)
 	}
 
-	err = os.RemoveAll("assets/heroes/")
-	if err != nil {
-		L.Println(err)
+	if Config.RemoveHeroes {
+		if err = os.RemoveAll("assets/heroes/"); err != nil {
+			L.Println(err)
+		}
 	}
 
 	err = DG.Close()

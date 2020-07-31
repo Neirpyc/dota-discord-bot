@@ -115,7 +115,7 @@ func createHeroesImagesList() {
 
 			for i, size := range sizes {
 				path := "assets/heroes/" + size + "/" + name + "." + exts[i]
-				if _, err := os.Stat(path); !os.IsNotExist(err) {
+				if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
 					continue
 				}
 
