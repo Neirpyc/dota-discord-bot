@@ -110,7 +110,7 @@ func init() {
 	//create the tmp dir
 	for _, path := range []string{"assets/tmp/", "assets/heroes/full/", "assets/heroes/lg/",
 		"assets/heroes/vert/", "assets/heroes/sb/"} {
-		if err = os.Mkdir(path, 0775); err != nil {
+		if err = os.MkdirAll(path, 0775); err != nil {
 			if os.IsNotExist(err) {
 				L.Fatal(err)
 			}
