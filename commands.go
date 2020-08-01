@@ -88,7 +88,7 @@ func help(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	msg := strings.Replace(helpMessage, "<bot_name>", s.State.User.Username, -1)
-	msg = strings.Replace(msg, "<bot@>", "<@"+s.State.User.Username+"#"+s.State.User.Discriminator+">", -1)
+	msg = strings.Replace(msg, "<bot@>", "`@"+s.State.User.Username+"`", -1)
 	_, err = s.ChannelMessageSend(m.ChannelID, msg)
 	if err != nil {
 		L.Printf("Sending message failed with error: %S", err.Error())
