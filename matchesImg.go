@@ -74,7 +74,11 @@ func getMatchImgSmall(match dota2api.MatchSummary, steamId string) image.Image {
 	if err != nil {
 		L.Fatal(err)
 	}
-	r["match_length"] = fmt.Sprintf("%d:%d", int64(d.Minutes()), int64(d.Seconds())%60)
+	if int64(d.Seconds())%60 > 10 {
+		r["match_length"] = fmt.Sprintf("%d:%d", int64(d.Minutes()), int64(d.Seconds())%60)
+	} else {
+		r["match_length"] = fmt.Sprintf("%d:%d0", int64(d.Minutes()), int64(d.Seconds())%60)
+	}
 
 	path, err := r.applyTemplate("assets/templates/small.html")
 	if err != nil {

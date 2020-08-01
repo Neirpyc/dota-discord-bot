@@ -99,7 +99,6 @@ func register(s *discordgo.Session, m *discordgo.MessageCreate) {
 	_ = s.ChannelTyping(m.ChannelID)
 	message := ""
 
-	//todo use login instead of ID
 	var err error
 	var id int64
 	for _, word := range strings.Split(m.Content, " ") {
