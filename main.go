@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -39,9 +40,6 @@ func init() {
 	//create a new logger
 	L = log.New(os.Stdout, "", log.Ldate|log.Lmicroseconds|log.Ltime|log.Llongfile)
 
-	//seed rand
-	rand.Seed(time.Now().Unix())
-
 	//parse the configuration file
 	configByte, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
@@ -52,75 +50,100 @@ func init() {
 		L.Fatal(err)
 	}
 
-	//connect to the dota api
-	D, err = dota2api.LoadConfig("config.ini")
-	if err != nil {
-		L.Fatal(err)
-	}
+	var wg sync.WaitGroup
+	wg.Add(5)
 
-	Heroes, err = D.GetHeroes()
-	if err != nil {
-		L.Fatal(err)
-	}
+	//seed rand
+	go func(wg *sync.WaitGroup) {
+		rand.Seed(time.Now().Unix())
+		wg.Done()
+	}(&wg)
+
+	//connect to the dota api
+	go func(wg *sync.WaitGroup) {
+		var err error
+		D, err = dota2api.LoadConfig("config.ini")
+		if err != nil {
+			L.Fatal(err)
+		}
+
+		Heroes, err = D.GetHeroes()
+		if err != nil {
+			L.Fatal(err)
+		}
+
+		//download the heads of all heroes
+		createHeroesImagesList()
+		wg.Done()
+	}(&wg)
 
 	//connect to database
-	DB, err = sql.Open("mysql", Config.MariaDb)
-	if err != nil {
-		L.Fatal(err)
-	}
-
-	_, err = DB.Query("USE dota_bot_discord")
-	if err != nil {
-		L.Println("Cannot find the 'dota_bot_discord' database: it will be created.")
-		rows, err := DB.Query("CREATE DATABASE dota_bot_discord")
-		if err != nil {
-			L.Fatal(err)
-		}
-		err = rows.Close()
+	go func(wg *sync.WaitGroup) {
+		var err error
+		DB, err = sql.Open("mysql", Config.MariaDb)
 		if err != nil {
 			L.Fatal(err)
 		}
 
-		L.Println("Created the 'dota_bot_discord' database successfully!")
-
-		_, err = DB.Exec("USE dota_bot_discord")
+		_, err = DB.Query("USE dota_bot_discord")
 		if err != nil {
-			L.Fatal(err)
-		}
-		_, err = DB.Exec(`create table steam_id
+			L.Println("Cannot find the 'dota_bot_discord' database: it will be created.")
+			rows, err := DB.Query("CREATE DATABASE dota_bot_discord")
+			if err != nil {
+				L.Fatal(err)
+			}
+			err = rows.Close()
+			if err != nil {
+				L.Fatal(err)
+			}
+
+			L.Println("Created the 'dota_bot_discord' database successfully!")
+
+			_, err = DB.Exec("USE dota_bot_discord")
+			if err != nil {
+				L.Fatal(err)
+			}
+			_, err = DB.Exec(`create table steam_id
 		(
 			discord_id BIGINT PRIMARY KEY not null,
 			steam_id BIGINT not null
 		);
 		`)
-		if err != nil {
-			L.Fatal(err)
-		}
-		_, err = DB.Exec(`create unique index steam_ide_discord_id_uindex
+			if err != nil {
+				L.Fatal(err)
+			}
+			_, err = DB.Exec(`create unique index steam_ide_discord_id_uindex
 		on steam_id (discord_id);`)
-		if err != nil {
-			L.Fatal(err)
-		}
-	}
-
-	//open discord API
-	DG, err = discordgo.New("Bot " + Config.Token)
-	if err != nil {
-		L.Fatal(err)
-	}
-
-	//create the tmp dir
-	for _, path := range []string{"assets/tmp/", "assets/heroes/full/", "assets/heroes/lg/",
-		"assets/heroes/vert/", "assets/heroes/sb/"} {
-		if err = os.MkdirAll(path, 0775); err != nil {
-			if os.IsNotExist(err) {
+			if err != nil {
 				L.Fatal(err)
 			}
 		}
-	}
+		wg.Done()
+	}(&wg)
 
-	//download the heads of all heroes
-	createHeroesImagesList()
+	//open discord API
+	go func(wg *sync.WaitGroup) {
+		var err error
+		DG, err = discordgo.New("Bot " + Config.Token)
+		if err != nil {
+			L.Fatal(err)
+		}
+		wg.Done()
+	}(&wg)
+
+	//create the tmp dir
+	go func(wg *sync.WaitGroup) {
+		for _, path := range []string{"assets/tmp/", "assets/heroes/full/", "assets/heroes/lg/",
+			"assets/heroes/vert/", "assets/heroes/sb/"} {
+			if err := os.MkdirAll(path, 0775); err != nil {
+				if os.IsNotExist(err) {
+					L.Fatal(err)
+				}
+			}
+		}
+		wg.Done()
+	}(&wg)
+	wg.Wait()
 }
 
 func main() {
