@@ -82,7 +82,7 @@ func getMatchImgSmall(match dota2api.MatchSummary, steamId string) image.Image {
 		return nil
 	}
 	imgData := screenshotFile(path)
-	if err = os.Remove("asssets/" + path); err != nil {
+	if err = os.Remove("asssets/tmp/" + path); err != nil {
 		L.Println(err)
 	}
 	if img, err := png.Decode(bytes.NewReader(imgData)); err != nil {
