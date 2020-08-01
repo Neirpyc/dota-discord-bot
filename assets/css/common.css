@@ -1,0 +1,15 @@
+@font-face {
+    font-family: "garamond";
+    src: url("../fonts/EB_Garamond/EBGaramond-Medium.ttf");
+}
+
+body {
+    margin: 0;
+    width: min-content;
+}
+
+div[id*='render']{
+    font-family: garamond;
+    color: #FFF;
+    background: #36393f;
+}

@@ -5,19 +5,6 @@
     position: relative;
     display: flex;
     flex-direction: row;
-    font-family: garamond;
-    color: #FFF;
-    background: #36393f;
-}
-
-@font-face {
-    font-family: "garamond";
-    src: url("../fonts/EB_Garamond/EBGaramond-Medium.ttf");
-}
-
-body {
-    margin: 0;
-    width: min-content;
 }
 
 #dire {

@@ -33,7 +33,8 @@ func serveDirectory(dir string, port chan<- string, stop <-chan bool) {
 	}
 }
 
-func screenshotFile(file string) []byte {
+func screenshotFile(file string, selectors ...string) [][]byte {
+	//todo reuse same context
 	ctx, cancel := chromedp.NewContext(context.Background())
 	defer cancel()
 
@@ -41,14 +42,16 @@ func screenshotFile(file string) []byte {
 	port := make(chan string, 0)
 	go serveDirectory("assets/", port, stop)
 	portStr := <-port
-	var buf []byte
-	err := chromedp.Run(ctx, chromedp.EmulateViewport(4096, 2160),
-		elementScreenshot("http://localhost:"+portStr+"/"+file, `#render`, &buf))
-	stop <- true
-	if err != nil {
-		log.Println(err)
-		return nil
+	buf := make([][]byte, len(selectors))
+	for i, selector := range selectors {
+		err := chromedp.Run(ctx, chromedp.EmulateViewport(4096, 2160),
+			elementScreenshot("http://localhost:"+portStr+"/"+file, selector, &buf[i]))
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
 	}
+	stop <- true
 	return buf
 }
 

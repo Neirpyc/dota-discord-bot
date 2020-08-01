@@ -26,8 +26,9 @@ func (h HeroList) getName(id int) string {
 	return ""
 }
 
-func getMatchImgSmall(match dota2api.MatchSummary, steamId string) image.Image {
+func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacement {
 	r := make(Replacement)
+
 	//getting match details
 	details, err := D.GetMatchDetails(match.MatchID)
 	if err != nil {
@@ -79,22 +80,48 @@ func getMatchImgSmall(match dota2api.MatchSummary, steamId string) image.Image {
 	} else {
 		r["match_length"] = fmt.Sprintf("%d:%d0", int64(d.Minutes()), int64(d.Seconds())%60)
 	}
+	return r
+}
+
+func getMatchImgSmall(match dota2api.MatchSummary, steamId string) []image.Image {
+	r := getMatchReplacement(match, steamId)
 
 	path, err := r.applyTemplate("assets/templates/small.html")
 	if err != nil {
 		L.Println(err)
 		return nil
 	}
-	imgData := screenshotFile(path)
+	imgData := screenshotFile(path, "#render")
 	if err = os.Remove("assets/" + path); err != nil {
 		L.Println(err)
 	}
-	if img, err := png.Decode(bytes.NewReader(imgData)); err != nil {
+	if img, err := png.Decode(bytes.NewReader(imgData[0])); err != nil {
 		L.Fatal(err)
 		return nil
 	} else {
-		return img
+		return []image.Image{img}
 	}
+}
+
+func getMatchImgMedium(match dota2api.MatchSummary, steamId string) []image.Image {
+	r := getMatchReplacement(match, steamId)
+
+	path, err := r.applyTemplate("assets/templates/medium.html")
+	if err != nil {
+		L.Println(err)
+		return nil
+	}
+	imgsData := screenshotFile(path, "#render0", "#render1", "#render2")
+	if err = os.Remove("assets/" + path); err != nil {
+		L.Println(err)
+	}
+	imgs := make([]image.Image, 3)
+	for i, imgData := range imgsData {
+		if imgs[i], err = png.Decode(bytes.NewReader(imgData)); err != nil {
+			L.Panic(err)
+		}
+	}
+	return imgs
 }
 
 const url = "http://cdn.dota2.com/apps/dota2/images/heroes/<name>_<size>.<ext>"

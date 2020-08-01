@@ -1,0 +1,17 @@
+#render0{
+    display: flex;
+    flex-direction: row;
+    flex-basis: max-content;
+    min-height: 10px;
+    min-width: 10px;
+}
+
+#render1{
+    min-height: 10px;
+    min-width: 10px;
+}
+
+#render2{
+    min-height: 10px;
+    min-width: 10px;
+}

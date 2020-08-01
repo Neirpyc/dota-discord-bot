@@ -125,14 +125,24 @@ noError:
 
 func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 	_ = s.ChannelTyping(m.ChannelID)
-	message := "last :("
 
 	steamId, err := GetSteamID(m.Author.ID)
 	if err != nil {
-		message = "Couldn't find you steam ID in our database. Please register it by using `register <steam_id> @<bot_name>`"
-		message = strings.Replace(message, "<bot_name>", s.State.User.Username, -1)
-		L.Panic(message)
+		L.Panic(fmt.Sprintf("Couldn't find you steam ID in our database. Please register it by using "+
+			"`register <steam_id> @%s`", s.State.User.Username))
 		return
+	}
+
+	sizes := []string{"small", "medium", "full"}
+	size := "medium"
+wordFor:
+	for _, word := range strings.Split(m.Message.Content, " ") {
+		for _, possibleSize := range sizes {
+			if word == possibleSize {
+				size = word
+				break wordFor
+			}
+		}
 	}
 
 	val, err := D.GetMatchHistory(map[string]interface{}{
@@ -140,6 +150,7 @@ func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 		"matches_requested": 1,
 		"min_players":       "10",
 	})
+
 	if err != nil {
 		if val.Result.Status == 15 {
 			L.Panic("We cannot retrieve match information unless you allow it in your Dota profile")
@@ -148,10 +159,6 @@ func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
-	size := "small"
-
-	var img image.Image
-
 	if len(val.Result.Matches) != 1 {
 		_, err = s.ChannelMessageSend(m.ChannelID, "We couldn't find any match.")
 		if err != nil {
@@ -159,21 +166,31 @@ func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
-	img = getMatchImgSmall(val.Result.Matches[0], steamId)
+	var imgs []image.Image
 
-	wr := bytes.Buffer{}
-
-	err = jpeg.Encode(&wr, img, &jpeg.Options{Quality: 100})
-	if err != nil {
-		L.Fatal(err)
+	switch size {
+	case "small":
+		imgs = getMatchImgSmall(val.Result.Matches[0], steamId)
+	case "medium":
+		imgs = getMatchImgMedium(val.Result.Matches[0], steamId)
+	case "full":
+		imgs = getMatchImgSmall(val.Result.Matches[0], steamId)
 	}
 
-	file := discordgo.File{Name: fmt.Sprintf("%d_%s.jpg", val.Result.Matches[0].MatchID, size), ContentType: "image/jpeg", Reader: &wr}
+	var wr bytes.Buffer
+	for i, img := range imgs {
+		err = jpeg.Encode(&wr, img, &jpeg.Options{Quality: 100})
+		if err != nil {
+			L.Fatal(err)
+		}
 
-	msg := discordgo.MessageSend{Files: []*discordgo.File{&file}}
+		file := discordgo.File{Name: fmt.Sprintf("%d_%s_%d.jpg", val.Result.Matches[0].MatchID, size, i), ContentType: "image/jpeg", Reader: &wr}
 
-	_, err = s.ChannelMessageSendComplex(m.ChannelID, &msg)
-	if err != nil {
-		L.Printf("Sending message failed with error: %s", err.Error())
+		msg := discordgo.MessageSend{Files: []*discordgo.File{&file}}
+
+		_, err = s.ChannelMessageSendComplex(m.ChannelID, &msg)
+		if err != nil {
+			L.Printf("Sending message failed with error: %s", err.Error())
+		}
 	}
 }
