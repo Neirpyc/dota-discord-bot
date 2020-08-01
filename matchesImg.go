@@ -17,6 +17,8 @@ import (
 
 type HeroList []dota2api.Hero
 
+type ItemList []dota2api.Item
+
 const (
 	invalid = iota - 1
 	publicMatchmaking
@@ -49,6 +51,15 @@ func (h HeroList) getName(id int) string {
 	for i := 0; i < len(h); i++ {
 		if id == h[i].ID {
 			return h[i].Name
+		}
+	}
+	return ""
+}
+
+func (i ItemList) getName(id int) string {
+	for c := 0; c < len(i); c++ {
+		if id == i[c].Id {
+			return i[c].Name
 		}
 	}
 	return ""
@@ -98,7 +109,7 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 		}(ordonedPlayers[i].Gold)
 
 		//items
-		//todo r[fmt.Sprintf("player_%d_item_0", i)] = "assets/items/" + ordonedPlayers[i].Item0
+		r[fmt.Sprintf("player_%d_item_0", i)] = strings.Replace(ItemList(Items).getName(ordonedPlayers[i].HeroID), "item_", "", 1)
 	}
 	if details.Result.RadiantWin {
 		r["radiant_win"] = "true"

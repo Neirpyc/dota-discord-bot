@@ -61,7 +61,7 @@ func init() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(5)
+	wg.Add(4)
 
 	//seed rand
 	go func(wg *sync.WaitGroup) {
