@@ -20,14 +20,15 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content == "!help" {
+		help(s, m)
 		deleteMessage()
-		Help(s, m)
 		return
 	}
 
-	noMention := strings.Join(strings.Split(m.Content, "<@!"+s.State.User.ID+"> "), "")
-	noMention = strings.Join(strings.Split(noMention, "<@!"+s.State.User.ID+">"), "")
-	if noMention == m.Content {
+	if len(m.Mentions) != 1 {
+		return
+	}
+	if m.Mentions[0].ID != s.State.User.ID {
 		return
 	}
 
@@ -37,7 +38,8 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			msg := discordgo.MessageSend{
 				Embed: &discordgo.MessageEmbed{Color: 0xff0000, Description: fmt.Sprintf("Something went wrong with your request `%s`.\n"+
-					"Please try again laster or contact the server administrator.", m.Content), Title: "Error"},
+					"Please try again laster or contact the server administrator.", replaceMentions(m.Content, s)),
+					Title: "Error"},
 			}
 			_, err := s.ChannelMessageSendComplex(m.ChannelID, &msg)
 			if err != nil {
@@ -46,16 +48,16 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}()
 
-	args := strings.Split(noMention, " ")
-	switch strings.Split(noMention, " ")[0] {
-	case "help":
-		Help(s, m)
-	case "last":
-		Last(s, m)
-	case "register":
-		register(s, m, args)
-	default:
+	if callback := CommandList.getCallback(m); callback != nil {
+		callback(s, m)
+	} else {
 		return
 	}
 	deleteMessage()
+}
+
+func replaceMentions(message string, s *discordgo.Session) string {
+	message = strings.Replace(message, fmt.Sprintf("<@!%s>", s.State.User.ID), "@"+s.State.User.Username, -1)
+	message = strings.Replace(message, fmt.Sprintf("<@%s>", s.State.User.ID), "@"+s.State.User.Username, -1)
+	return message
 }
