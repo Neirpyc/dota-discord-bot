@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/l2x/dota2api"
+	"github.com/Neirpyc/dota2api"
 	"image"
 	"image/png"
 	"io/ioutil"
@@ -16,6 +16,34 @@ import (
 )
 
 type HeroList []dota2api.Hero
+
+const (
+	invalid = iota - 1
+	publicMatchmaking
+	pratice
+	tournament
+	tutorial
+	coopWithAI
+	teamMatch
+	soloQueue
+	rankedMatchmaking
+	soloMid1v1
+)
+
+var (
+	lobbyTypeConvert = map[int]string{
+		invalid:           "invalid",
+		publicMatchmaking: "Unranked",
+		pratice:           "Practice",
+		tournament:        "Tournament",
+		tutorial:          "Tutorial",
+		coopWithAI:        "Co-op With AI",
+		teamMatch:         "Team Ranked",
+		soloQueue:         "Unranked",
+		rankedMatchmaking: "Ranked",
+		soloMid1v1:        "Solo Mid 1v1",
+	}
+)
 
 func (h HeroList) getName(id int) string {
 	for i := 0; i < len(h); i++ {
@@ -56,9 +84,21 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 		} else {
 			r[fmt.Sprintf("class_hero_%d", i)] = ""
 		}
+
 		r[fmt.Sprintf("kills_player_%d", i)] = fmt.Sprintf("%d", ordonedPlayers[i].Kills)
 		r[fmt.Sprintf("assists_player_%d", i)] = fmt.Sprintf("%d", ordonedPlayers[i].Assists)
 		r[fmt.Sprintf("deaths_player_%d", i)] = fmt.Sprintf("%d", ordonedPlayers[i].Deaths)
+
+		//gold
+		r[fmt.Sprintf("gold_player_%d", i)] = func(gold int) string {
+			if gold < 1000 {
+				return fmt.Sprintf("%d", gold)
+			}
+			return fmt.Sprintf("%d.%dk", gold/1000, (gold%100)/100)
+		}(ordonedPlayers[i].Gold)
+
+		//items
+		//todo r[fmt.Sprintf("player_%d_item_0", i)] = "assets/items/" + ordonedPlayers[i].Item0
 	}
 	if details.Result.RadiantWin {
 		r["radiant_win"] = "true"
@@ -80,6 +120,14 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 	} else {
 		r["match_length"] = fmt.Sprintf("%d:%d0", int64(d.Minutes()), int64(d.Seconds())%60)
 	}
+
+	//game date
+	timeBegin := time.Unix(int64(match.StartTime), 0)
+	r["game_date"] = fmt.Sprintf("%2.2d/%2.2d/%4.4d", timeBegin.Month(), timeBegin.Day(), timeBegin.Year())
+	r["game_type"] = lobbyTypeConvert[match.LobbyType]
+
+	//items
+
 	return r
 }
 
@@ -124,7 +172,7 @@ func getMatchImgMedium(match dota2api.MatchSummary, steamId string) []image.Imag
 	return imgs
 }
 
-const url = "http://cdn.dota2.com/apps/dota2/images/heroes/<name>_<size>.<ext>"
+const urlHeroes = "http://cdn.dota2.com/apps/dota2/images/heroes/<name>_<size>.<ext>"
 
 var sizes = []string{"lg", "vert", "sb", "full"}
 var exts = []string{"png", "jpg", "png", "png"}
@@ -140,7 +188,7 @@ func createHeroesImagesList() {
 	wg.Add(len(heroesList))
 	for _, v := range heroesList {
 		go func(name string, wg *sync.WaitGroup) {
-			customUrl := strings.Replace(url, "<name>", name, 1)
+			customUrl := strings.Replace(urlHeroes, "<name>", name, 1)
 
 			cli := http.Client{}
 
@@ -169,6 +217,47 @@ func createHeroesImagesList() {
 			}
 			wg.Done()
 		}(strings.ReplaceAll(v.Name, "npc_dota_hero_", ""), wg)
+	}
+	wg.Wait()
+}
+
+const urlItems = "http://cdn.dota2.com/apps/dota2/images/items/<name>_lg.png"
+
+func createItemsImagesList() {
+	itemsList, err := D.GetItems()
+	if err != nil {
+		L.Fatal(err)
+	}
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(len(itemsList))
+	for _, v := range itemsList {
+		go func(name string, wg *sync.WaitGroup) {
+			defer wg.Done()
+			customUrl := strings.Replace(urlItems, "<name>", name, 1)
+
+			cli := http.Client{}
+
+			path := "assets/items/lg/" + name + ".png"
+			if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
+				return
+			}
+			res, err := cli.Get(customUrl)
+			if err != nil {
+				L.Fatal(err)
+			}
+
+			data, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				L.Fatal(err)
+			}
+
+			err = ioutil.WriteFile(path, data, 0666)
+			if err != nil {
+				L.Fatal(err)
+			}
+		}(strings.ReplaceAll(v.Name, "item_", ""), wg)
 	}
 	wg.Wait()
 }

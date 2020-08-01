@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"github.com/Neirpyc/dota2api"
 	"github.com/bwmarrin/discordgo"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/l2x/dota2api"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -26,13 +26,14 @@ var (
 
 	//data
 	Heroes []dota2api.Hero
+	Items  []dota2api.Item
 	Config config
 )
 
 type config struct {
 	Token        string `yaml:"Token"`
 	MariaDb      string `yaml:"MariaDb"`
-	RemoveHeroes bool   `yaml:"RemoveHeroes"`
+	RemoveImages bool   `yaml:"RemoveImages"`
 	ForceReload  bool   `yaml:"ForceReload"`
 }
 
@@ -48,6 +49,15 @@ func init() {
 	err = yaml.Unmarshal(configByte, &Config)
 	if err != nil {
 		L.Fatal(err)
+	}
+
+	for _, path := range []string{"assets/tmp/", "assets/heroes/full/", "assets/heroes/lg/",
+		"assets/heroes/vert/", "assets/heroes/sb/", "assets/items/lg"} {
+		if err := os.MkdirAll(path, 0775); err != nil {
+			if os.IsNotExist(err) {
+				L.Fatal(err)
+			}
+		}
 	}
 
 	var wg sync.WaitGroup
@@ -72,8 +82,18 @@ func init() {
 			L.Fatal(err)
 		}
 
-		//download the heads of all heroes
-		createHeroesImagesList()
+		//download images of heroes and items
+		var wg0 sync.WaitGroup
+		wg0.Add(2)
+		go func(wg *sync.WaitGroup) {
+			createHeroesImagesList()
+			wg.Done()
+		}(&wg0)
+		go func(wg *sync.WaitGroup) {
+			createItemsImagesList()
+			wg.Done()
+		}(&wg0)
+		wg0.Wait()
 		wg.Done()
 	}(&wg)
 
@@ -131,18 +151,6 @@ func init() {
 		wg.Done()
 	}(&wg)
 
-	//create the tmp dir
-	go func(wg *sync.WaitGroup) {
-		for _, path := range []string{"assets/tmp/", "assets/heroes/full/", "assets/heroes/lg/",
-			"assets/heroes/vert/", "assets/heroes/sb/"} {
-			if err := os.MkdirAll(path, 0775); err != nil {
-				if os.IsNotExist(err) {
-					L.Fatal(err)
-				}
-			}
-		}
-		wg.Done()
-	}(&wg)
 	wg.Wait()
 }
 
@@ -162,8 +170,14 @@ func main() {
 		L.Println(err)
 	}
 
-	if Config.RemoveHeroes {
+	if Config.RemoveImages {
 		if err = os.RemoveAll("assets/heroes/"); err != nil {
+			L.Println(err)
+		}
+	}
+
+	if Config.RemoveImages {
+		if err = os.RemoveAll("assets/items/"); err != nil {
 			L.Println(err)
 		}
 	}
