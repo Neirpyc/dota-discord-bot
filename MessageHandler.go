@@ -38,8 +38,9 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			msg := discordgo.MessageSend{
 				Embed: &discordgo.MessageEmbed{Color: 0xff0000, Description: fmt.Sprintf("Something went wrong with your request `%s`.\n"+
-					"Please try again laster or contact the server administrator.", replaceMentions(m.Content, s)),
-					Title: "Error"},
+					"Please try again laster or contact the server administrator.\n Request failed with error: ```%s```", replaceMentions(m.Content, s), r),
+					Title: "Error",
+				},
 			}
 			_, err := s.ChannelMessageSendComplex(m.ChannelID, &msg)
 			if err != nil {

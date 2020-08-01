@@ -132,16 +132,7 @@ func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if err != nil {
 		message = "Couldn't find you steam ID in our database. Please register it by using `register <steam_id> @<bot_name>`"
 		message = strings.Replace(message, "<bot_name>", s.State.User.Username, -1)
-
-		msg := discordgo.MessageSend{
-			Embed: &discordgo.MessageEmbed{Color: 0xff0000, Description: fmt.Sprintf("Something went wrong with your request `%s`.\n"+
-				"Please try again laster or contact the server administrator.\n Error is:\"%s\"", m.Content, message), Title: "Error"},
-		}
-		_, err := s.ChannelMessageSendComplex(m.ChannelID, &msg)
-		if err != nil {
-			L.Fatal(err)
-		}
-
+		L.Panic(message)
 		return
 	}
 
@@ -151,7 +142,11 @@ func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 		"min_players":       "10",
 	})
 	if err != nil {
-		L.Println(err)
+		if val.Result.Status == 15 {
+			L.Panic("We cannot retrieve match information unless you allow it in your Dota profile")
+		} else {
+			L.Panic(err)
+		}
 	}
 
 	size := "small"
@@ -180,6 +175,6 @@ func last(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	_, err = s.ChannelMessageSendComplex(m.ChannelID, &msg)
 	if err != nil {
-		L.Printf("Sending message failed with error: %S", err.Error())
+		L.Printf("Sending message failed with error: %s", err.Error())
 	}
 }
