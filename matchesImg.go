@@ -6,11 +6,8 @@ import (
 	"github.com/Neirpyc/dota2api"
 	"image"
 	"image/png"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -70,7 +67,7 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 		if !found {
 			L.Panic("Hero not found")
 		}
-		r[fmt.Sprintf("hero_name_%d", i)] = strings.Replace(h.Name, "npc_dota_hero_", "", 1)
+		r[fmt.Sprintf("hero_name_%d", i)] = h.Name.GetName()
 		if fmt.Sprintf("%d", orderedPlayers[i].AccountID) == steamId {
 			r[fmt.Sprintf("class_hero_%d", i)] = "player"
 		} else {
@@ -94,7 +91,7 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 		if !found {
 			L.Panic("Item not found")
 		}
-		r[fmt.Sprintf("player_%d_item_0", i)] = strings.Replace(i.Name, "item_", "", 1)
+		r[fmt.Sprintf("player_%d_item_0", i)] = i.Name.GetName()
 	}
 	if details.Result.RadiantWin {
 		r["radiant_win"] = "true"
@@ -168,87 +165,57 @@ func getMatchImgMedium(match dota2api.MatchSummary, steamId string) []image.Imag
 	return imgs
 }
 
-const urlHeroes = "http://cdn.dota2.com/apps/dota2/images/heroes/<name>_<size>.<ext>"
-
-var sizes = []string{"lg", "vert", "sb", "full"}
-var exts = []string{"png", "jpg", "png", "png"}
-
 func createHeroesImagesList() {
-	wg := &sync.WaitGroup{}
+	Heroes.GoForEach(func(hero dota2api.Hero, wg *sync.WaitGroup) {
+		defer wg.Done()
+		sizes := []string{"lg", "sb", "full", "vert"}
+		for i, size := range sizes {
 
-	wg.Add(Heroes.Count())
-	Heroes.ForEach(func(hero dota2api.Hero) {
-		go func(name string, wg *sync.WaitGroup) {
-			customUrl := strings.Replace(urlHeroes, "<name>", name, 1)
-
-			cli := http.Client{}
-
-			for i, size := range sizes {
-				path := "assets/heroes/" + size + "/" + name + "." + exts[i]
-				if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
-					continue
-				}
-
-				sizedUrl := strings.Replace(customUrl, "<size>", size, 1)
-				sizedUrl = strings.Replace(sizedUrl, "<ext>", exts[i], 1)
-				res, err := cli.Get(sizedUrl)
-				if err != nil {
-					L.Fatal(err)
-				}
-
-				data, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					L.Fatal(err)
-				}
-
-				err = ioutil.WriteFile(path, data, 0666)
-				if err != nil {
-					L.Fatal(err)
-				}
+			path := "assets/heroes/" + size + "/" + hero.Name.GetName() + ".png"
+			if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
+				continue
 			}
-			wg.Done()
-		}(strings.ReplaceAll(hero.Name, "npc_dota_hero_", ""), wg)
+
+			img, err0 := D.GetHeroImage(hero, i)
+			if err0 != nil {
+				fmt.Println(hero)
+				L.Fatal(err0)
+			}
+
+			f, err := os.Create(path)
+			if err != nil {
+				L.Fatal(err)
+			}
+
+			if err := png.Encode(f, img); err != nil {
+				L.Fatal(err)
+			}
+		}
 	})
-	wg.Wait()
 }
 
-const urlItems = "http://cdn.dota2.com/apps/dota2/images/items/<name>_lg.png"
-
 func createItemsImagesList() {
-	var err error
-	Items, err = D.GetItems()
-	if err != nil {
-		L.Panic(err)
-	}
-	wg := &sync.WaitGroup{}
+	Items.GoForEach(func(item dota2api.Item, wg *sync.WaitGroup) {
+		defer wg.Done()
 
-	wg.Add(Items.Count())
-	Items.ForEach(func(item dota2api.Item) {
-		go func(name string, wg *sync.WaitGroup) {
-			defer wg.Done()
-			customUrl := strings.Replace(urlItems, "<name>", name, 1)
+		path := "assets/items/lg/" + item.Name.GetName() + ".png"
+		if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
+			return
+		}
 
-			cli := http.Client{}
+		img, err := D.GetItemImage(item)
+		if err != nil {
+			L.Fatal(err)
+		}
 
-			path := "assets/items/lg/" + name + ".png"
-			if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
-				return
-			}
-			res, err := cli.Get(customUrl)
-			if err != nil {
-				L.Fatal(err)
-			}
+		f, err := os.Create(path)
+		if err != nil {
+			L.Fatal(err)
+		}
 
-			data, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				L.Fatal(err)
-			}
-
-			err = ioutil.WriteFile(path, data, 0666)
-			if err != nil {
-				L.Fatal(err)
-			}
-		}(strings.ReplaceAll(item.Name, "item_", ""), wg)
+		err = png.Encode(f, img)
+		if err != nil {
+			L.Fatal(err)
+		}
 	})
-	wg.Wait()
 }

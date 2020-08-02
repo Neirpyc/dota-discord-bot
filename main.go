@@ -77,19 +77,22 @@ func init() {
 			L.Fatal(err)
 		}
 
-		Heroes, err = D.GetHeroes()
-		if err != nil {
-			L.Fatal(err)
-		}
-
 		//download images of heroes and items
 		var wg0 sync.WaitGroup
 		wg0.Add(2)
 		go func(wg *sync.WaitGroup) {
+			Heroes, err = D.GetHeroes()
+			if err != nil {
+				L.Fatal(err)
+			}
 			createHeroesImagesList()
 			wg.Done()
 		}(&wg0)
 		go func(wg *sync.WaitGroup) {
+			Items, err = D.GetItems()
+			if err != nil {
+				L.Fatal(err)
+			}
 			createItemsImagesList()
 			wg.Done()
 		}(&wg0)
