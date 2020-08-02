@@ -15,10 +15,6 @@ import (
 	"time"
 )
 
-type HeroList []dota2api.Hero
-
-type ItemList []dota2api.Item
-
 const (
 	invalid = iota - 1
 	publicMatchmaking
@@ -47,24 +43,6 @@ var (
 	}
 )
 
-func (h HeroList) getName(id int) string {
-	for i := 0; i < len(h); i++ {
-		if id == h[i].ID {
-			return h[i].Name
-		}
-	}
-	return ""
-}
-
-func (i ItemList) getName(id int) string {
-	for c := 0; c < len(i); c++ {
-		if id == i[c].Id {
-			return i[c].Name
-		}
-	}
-	return ""
-}
-
 func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacement {
 	r := make(Replacement)
 
@@ -74,31 +52,34 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 		L.Fatal(err)
 	}
 
-	ordonedPlayers := make([]dota2api.Player, 10)
+	orderedPlayers := make([]dota2api.Player, 10)
 	radiantCount := 0
 	direCount := 5
 	for _, v := range details.Result.Players {
 		if v.PlayerSlot < 128 { //if radiant
-			ordonedPlayers[radiantCount] = v
+			orderedPlayers[radiantCount] = v
 			radiantCount++
 		} else {
-			ordonedPlayers[direCount] = v
+			orderedPlayers[direCount] = v
 			direCount++
 		}
 	}
 
 	for i := 0; i < 10; i++ {
-		r[fmt.Sprintf("hero_name_%d", i)] =
-			strings.Replace(HeroList(Heroes).getName(ordonedPlayers[i].HeroID), "npc_dota_hero_", "", 1)
-		if fmt.Sprintf("%d", ordonedPlayers[i].AccountID) == steamId {
+		h, found := Heroes.GetById(orderedPlayers[i].HeroID)
+		if !found {
+			L.Panic("Hero not found")
+		}
+		r[fmt.Sprintf("hero_name_%d", i)] = strings.Replace(h.Name, "npc_dota_hero_", "", 1)
+		if fmt.Sprintf("%d", orderedPlayers[i].AccountID) == steamId {
 			r[fmt.Sprintf("class_hero_%d", i)] = "player"
 		} else {
 			r[fmt.Sprintf("class_hero_%d", i)] = ""
 		}
 
-		r[fmt.Sprintf("kills_player_%d", i)] = fmt.Sprintf("%d", ordonedPlayers[i].Kills)
-		r[fmt.Sprintf("assists_player_%d", i)] = fmt.Sprintf("%d", ordonedPlayers[i].Assists)
-		r[fmt.Sprintf("deaths_player_%d", i)] = fmt.Sprintf("%d", ordonedPlayers[i].Deaths)
+		r[fmt.Sprintf("kills_player_%d", i)] = fmt.Sprintf("%d", orderedPlayers[i].Kills)
+		r[fmt.Sprintf("assists_player_%d", i)] = fmt.Sprintf("%d", orderedPlayers[i].Assists)
+		r[fmt.Sprintf("deaths_player_%d", i)] = fmt.Sprintf("%d", orderedPlayers[i].Deaths)
 
 		//gold
 		r[fmt.Sprintf("gold_player_%d", i)] = func(gold int) string {
@@ -106,10 +87,14 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 				return fmt.Sprintf("%d", gold)
 			}
 			return fmt.Sprintf("%d.%dk", gold/1000, (gold%100)/100)
-		}(ordonedPlayers[i].Gold)
+		}(orderedPlayers[i].Gold)
 
 		//items
-		r[fmt.Sprintf("player_%d_item_0", i)] = strings.Replace(ItemList(Items).getName(ordonedPlayers[i].HeroID), "item_", "", 1)
+		i, found := Items.GetById(orderedPlayers[i].Item0)
+		if !found {
+			L.Panic("Item not found")
+		}
+		r[fmt.Sprintf("player_%d_item_0", i)] = strings.Replace(i.Name, "item_", "", 1)
 	}
 	if details.Result.RadiantWin {
 		r["radiant_win"] = "true"
@@ -189,15 +174,10 @@ var sizes = []string{"lg", "vert", "sb", "full"}
 var exts = []string{"png", "jpg", "png", "png"}
 
 func createHeroesImagesList() {
-	heroesList, err := D.GetHeroes()
-	if err != nil {
-		L.Fatal(err)
-	}
-
 	wg := &sync.WaitGroup{}
 
-	wg.Add(len(heroesList))
-	for _, v := range heroesList {
+	wg.Add(Heroes.Count())
+	Heroes.ForEach(func(hero dota2api.Hero) {
 		go func(name string, wg *sync.WaitGroup) {
 			customUrl := strings.Replace(urlHeroes, "<name>", name, 1)
 
@@ -227,23 +207,23 @@ func createHeroesImagesList() {
 				}
 			}
 			wg.Done()
-		}(strings.ReplaceAll(v.Name, "npc_dota_hero_", ""), wg)
-	}
+		}(strings.ReplaceAll(hero.Name, "npc_dota_hero_", ""), wg)
+	})
 	wg.Wait()
 }
 
 const urlItems = "http://cdn.dota2.com/apps/dota2/images/items/<name>_lg.png"
 
 func createItemsImagesList() {
-	itemsList, err := D.GetItems()
+	var err error
+	Items, err = D.GetItems()
 	if err != nil {
-		L.Fatal(err)
+		L.Panic(err)
 	}
-
 	wg := &sync.WaitGroup{}
 
-	wg.Add(len(itemsList))
-	for _, v := range itemsList {
+	wg.Add(Items.Count())
+	Items.ForEach(func(item dota2api.Item) {
 		go func(name string, wg *sync.WaitGroup) {
 			defer wg.Done()
 			customUrl := strings.Replace(urlItems, "<name>", name, 1)
@@ -268,7 +248,7 @@ func createItemsImagesList() {
 			if err != nil {
 				L.Fatal(err)
 			}
-		}(strings.ReplaceAll(v.Name, "item_", ""), wg)
-	}
+		}(strings.ReplaceAll(item.Name, "item_", ""), wg)
+	})
 	wg.Wait()
 }

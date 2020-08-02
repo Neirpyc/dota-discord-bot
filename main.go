@@ -25,8 +25,8 @@ var (
 	DG *discordgo.Session
 
 	//data
-	Heroes []dota2api.Hero
-	Items  []dota2api.Item
+	Heroes dota2api.Heroes
+	Items  dota2api.Items
 	Config config
 )
 
@@ -72,7 +72,7 @@ func init() {
 	//connect to the dota api
 	go func(wg *sync.WaitGroup) {
 		var err error
-		D, err = dota2api.LoadConfig("config.ini")
+		D, err = dota2api.LoadConfig("config.yaml")
 		if err != nil {
 			L.Fatal(err)
 		}
