@@ -12,44 +12,16 @@ import (
 	"time"
 )
 
-const (
-	invalid = iota - 1
-	publicMatchmaking
-	pratice
-	tournament
-	tutorial
-	coopWithAI
-	teamMatch
-	soloQueue
-	rankedMatchmaking
-	soloMid1v1
-)
-
-var (
-	lobbyTypeConvert = map[int]string{
-		invalid:           "invalid",
-		publicMatchmaking: "Unranked",
-		pratice:           "Practice",
-		tournament:        "Tournament",
-		tutorial:          "Tutorial",
-		coopWithAI:        "Co-op With AI",
-		teamMatch:         "Team Ranked",
-		soloQueue:         "Unranked",
-		rankedMatchmaking: "Ranked",
-		soloMid1v1:        "Solo Mid 1v1",
-	}
-)
-
 func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacement {
 	r := make(Replacement)
 
 	//getting match details
-	details, err := D.GetMatchDetails(match.MatchID)
+	details, err := D.GetMatchDetails(match.MatchId)
 	if err != nil {
 		L.Fatal(err)
 	}
 
-	orderedPlayers := make([]dota2api.Player, 10)
+	orderedPlayers := make([]dota2api.PlayerJSON, 10)
 	radiantCount := 0
 	direCount := 5
 	for _, v := range details.Result.Players {
@@ -115,9 +87,8 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 	}
 
 	//game date
-	timeBegin := time.Unix(int64(match.StartTime), 0)
-	r["game_date"] = fmt.Sprintf("%2.2d/%2.2d/%4.4d", timeBegin.Month(), timeBegin.Day(), timeBegin.Year())
-	r["game_type"] = lobbyTypeConvert[match.LobbyType]
+	r["game_date"] = fmt.Sprintf("%2.2d/%2.2d/%4.4d", match.StartTime.Month(), match.StartTime.Day(), match.StartTime.Year())
+	r["game_type"] = match.LobbyType.GetName()
 
 	//items
 

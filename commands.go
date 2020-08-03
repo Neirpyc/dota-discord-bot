@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/Neirpyc/dota2api"
 	"github.com/bwmarrin/discordgo"
 	"image"
 	"image/jpeg"
@@ -145,36 +146,31 @@ wordFor:
 		}
 	}
 
-	val, err := D.GetMatchHistory(map[string]interface{}{
+	/*val, err := D.GetMatchHistory(map[string]interface{}{
 		"account_id":        steamId,
 		"matches_requested": 1,
 		"min_players":       "10",
-	})
+	})*/
+	steamIdInt, _ := strconv.ParseInt(steamId, 10, 64)
+	val, err := D.GetMatchHistory(dota2api.AccountId(steamIdInt), dota2api.MatchesRequested(1), dota2api.MinPlayers(10))
 
 	if err != nil {
-		if val.Result.Status == 15 {
-			L.Panic("We cannot retrieve match information unless you allow it in your Dota profile")
-		} else {
-			L.Panic(err)
-		}
+		L.Panic(err)
 	}
 
-	if len(val.Result.Matches) != 1 {
-		_, err = s.ChannelMessageSend(m.ChannelID, "We couldn't find any match.")
-		if err != nil {
-			L.Fatal("Sending message failed with error: %S", err.Error())
-		}
+	if val.Count() != 1 {
+		L.Panic("We could not find any match.")
 	}
 
 	var imgs []image.Image
 
 	switch size {
 	case "small":
-		imgs = getMatchImgSmall(val.Result.Matches[0], steamId)
+		imgs = getMatchImgSmall(val.Matches[0], steamId)
 	case "medium":
-		imgs = getMatchImgMedium(val.Result.Matches[0], steamId)
+		imgs = getMatchImgMedium(val.Matches[0], steamId)
 	case "full":
-		imgs = getMatchImgSmall(val.Result.Matches[0], steamId)
+		imgs = getMatchImgSmall(val.Matches[0], steamId)
 	}
 
 	var wr bytes.Buffer
@@ -184,7 +180,7 @@ wordFor:
 			L.Fatal(err)
 		}
 
-		file := discordgo.File{Name: fmt.Sprintf("%d_%s_%d.jpg", val.Result.Matches[0].MatchID, size, i), ContentType: "image/jpeg", Reader: &wr}
+		file := discordgo.File{Name: fmt.Sprintf("%d_%s_%d.jpg", val.Matches[0].MatchId, size, i), ContentType: "image/jpeg", Reader: &wr}
 
 		msg := discordgo.MessageSend{Files: []*discordgo.File{&file}}
 
