@@ -7,83 +7,63 @@ import (
 	"image"
 	"image/png"
 	"os"
-	"strconv"
 	"sync"
-	"time"
 )
 
 func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacement {
 	r := make(Replacement)
 
 	//getting match details
-	details, err := D.GetMatchDetails(match.MatchId)
+	details, err := D.GetMatchDetails(dota2api.MatchId(match.MatchId))
 	if err != nil {
 		L.Fatal(err)
 	}
 
-	orderedPlayers := make([]dota2api.PlayerJSON, 10)
-	radiantCount := 0
-	direCount := 5
-	for _, v := range details.Result.Players {
-		if v.PlayerSlot < 128 { //if radiant
-			orderedPlayers[radiantCount] = v
-			radiantCount++
-		} else {
-			orderedPlayers[direCount] = v
-			direCount++
-		}
-	}
-
-	for i := 0; i < 10; i++ {
-		h, found := Heroes.GetById(orderedPlayers[i].HeroID)
-		if !found {
-			L.Panic("Hero not found")
-		}
-		r[fmt.Sprintf("hero_name_%d", i)] = h.Name.GetName()
-		if fmt.Sprintf("%d", orderedPlayers[i].AccountID) == steamId {
+	var i int
+	details.ForEachPlayer(func(p dota2api.PlayerDetails) {
+		r[fmt.Sprintf("hero_name_%d", i)] = p.Hero.Name.GetName()
+		if fmt.Sprintf("%d", p.AccountId) == steamId {
 			r[fmt.Sprintf("class_hero_%d", i)] = "player"
 		} else {
 			r[fmt.Sprintf("class_hero_%d", i)] = ""
 		}
 
-		r[fmt.Sprintf("kills_player_%d", i)] = fmt.Sprintf("%d", orderedPlayers[i].Kills)
-		r[fmt.Sprintf("assists_player_%d", i)] = fmt.Sprintf("%d", orderedPlayers[i].Assists)
-		r[fmt.Sprintf("deaths_player_%d", i)] = fmt.Sprintf("%d", orderedPlayers[i].Deaths)
+		r[fmt.Sprintf("kills_player_%d", i)] = fmt.Sprintf("%d", p.KDA.Kills)
+		r[fmt.Sprintf("assists_player_%d", i)] = fmt.Sprintf("%d", p.KDA.Assists)
+		r[fmt.Sprintf("deaths_player_%d", i)] = fmt.Sprintf("%d", p.KDA.Deaths)
 
 		//gold
-		r[fmt.Sprintf("gold_player_%d", i)] = func(gold int) string {
-			if gold < 1000 {
-				return fmt.Sprintf("%d", gold)
-			}
-			return fmt.Sprintf("%d.%dk", gold/1000, (gold%100)/100)
-		}(orderedPlayers[i].Gold)
+		r[fmt.Sprintf("gold_player_%d", i)] = p.Stats.Gold.NetWorth().ToString()
 
 		//items
-		i, found := Items.GetById(orderedPlayers[i].Item0)
-		if !found {
-			L.Panic("Item not found")
-		}
-		r[fmt.Sprintf("player_%d_item_0", i)] = i.Name.GetName()
-	}
-	if details.Result.RadiantWin {
+		r[fmt.Sprintf("player_%d_item_0", i)] = p.Items.Item0.Name.GetName()
+		r[fmt.Sprintf("player_%d_item_1", i)] = p.Items.Item1.Name.GetName()
+		r[fmt.Sprintf("player_%d_item_2", i)] = p.Items.Item2.Name.GetName()
+		r[fmt.Sprintf("player_%d_item_3", i)] = p.Items.Item3.Name.GetName()
+		r[fmt.Sprintf("player_%d_item_4", i)] = p.Items.Item4.Name.GetName()
+		r[fmt.Sprintf("player_%d_item_5", i)] = p.Items.Item5.Name.GetName()
+		r[fmt.Sprintf("player_%d_item_neutral", i)] = p.Items.ItemNeutral.Name.GetName()
+		r[fmt.Sprintf("player_%d_backpack_0", i)] = p.Items.BackpackItem0.Name.GetName()
+		r[fmt.Sprintf("player_%d_backpack_1", i)] = p.Items.BackpackItem1.Name.GetName()
+		r[fmt.Sprintf("player_%d_backpack_2", i)] = p.Items.BackpackItem2.Name.GetName()
+		i++
+	})
+
+	if details.Victory.RadiantWon() {
 		r["radiant_win"] = "true"
 		r["dire_win"] = "false"
 	} else {
 		r["radiant_win"] = "false"
 		r["dire_win"] = "true"
 	}
-	r["radiant_score"] = fmt.Sprintf("%d", details.Result.RadiantScore)
-	r["dire_score"] = fmt.Sprintf("%d", details.Result.DireScore)
+	r["radiant_score"] = fmt.Sprintf("%d", details.Score.RadiantScore)
+	r["dire_score"] = fmt.Sprintf("%d", details.Score.DireScore)
 
 	//time label
-	d, err := time.ParseDuration(strconv.Itoa(details.Result.Duration) + "s")
-	if err != nil {
-		L.Fatal(err)
-	}
-	if int64(d.Seconds())%60 > 10 {
-		r["match_length"] = fmt.Sprintf("%d:%d", int64(d.Minutes()), int64(d.Seconds())%60)
+	if int64(details.Duration.Seconds())%60 > 10 {
+		r["match_length"] = fmt.Sprintf("%d:%d", int64(details.Duration.Minutes()), int64(details.Duration.Seconds())%60)
 	} else {
-		r["match_length"] = fmt.Sprintf("%d:%d0", int64(d.Minutes()), int64(d.Seconds())%60)
+		r["match_length"] = fmt.Sprintf("%d:%d0", int64(details.Duration.Minutes()), int64(details.Duration.Seconds())%60)
 	}
 
 	//game date
