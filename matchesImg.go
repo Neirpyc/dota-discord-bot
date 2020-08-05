@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/png"
 	"os"
-	"sync"
 )
 
 func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacement {
@@ -117,8 +116,7 @@ func getMatchImgMedium(match dota2api.MatchSummary, steamId string) []image.Imag
 }
 
 func createHeroesImagesList() {
-	Heroes.GoForEach(func(hero dota2api.Hero, wg *sync.WaitGroup) {
-		defer wg.Done()
+	Heroes.ForEachAsync(func(hero dota2api.Hero) {
 		sizes := []string{"lg", "sb", "full", "vert"}
 		for i, size := range sizes {
 
@@ -146,9 +144,7 @@ func createHeroesImagesList() {
 }
 
 func createItemsImagesList() {
-	Items.GoForEach(func(item dota2api.Item, wg *sync.WaitGroup) {
-		defer wg.Done()
-
+	Items.ForEachAsync(func(item dota2api.Item) {
 		path := "assets/items/lg/" + item.Name.GetName() + ".png"
 		if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
 			return
