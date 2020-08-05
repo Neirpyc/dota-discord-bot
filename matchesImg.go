@@ -7,10 +7,11 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"sync"
 )
 
-func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacement {
-	r := make(Replacement)
+func getMatchReplacement(match dota2api.MatchSummary, steamId string) *Replacement {
+	r := sync.Map{}
 
 	//getting match details
 	details, err := D.GetMatchDetails(dota2api.MatchId(match.MatchId))
@@ -18,60 +19,60 @@ func getMatchReplacement(match dota2api.MatchSummary, steamId string) Replacemen
 		L.Fatal(err)
 	}
 
-	var i int
-	details.ForEachPlayer(func(p dota2api.PlayerDetails) {
-		r[fmt.Sprintf("hero_name_%d", i)] = p.Hero.Name.GetName()
+	wait := details.GoForEachPlayerI(func(p dota2api.PlayerDetails, index int) {
+		r.Store(fmt.Sprintf("hero_name_%d", index), p.Hero.Name.GetName())
 		if fmt.Sprintf("%d", p.AccountId) == steamId {
-			r[fmt.Sprintf("class_hero_%d", i)] = "player"
+			r.Store(fmt.Sprintf("class_hero_%d", index), "player")
 		} else {
-			r[fmt.Sprintf("class_hero_%d", i)] = ""
+			r.Store(fmt.Sprintf("class_hero_%d", index), "")
 		}
 
-		r[fmt.Sprintf("kills_player_%d", i)] = fmt.Sprintf("%d", p.KDA.Kills)
-		r[fmt.Sprintf("assists_player_%d", i)] = fmt.Sprintf("%d", p.KDA.Assists)
-		r[fmt.Sprintf("deaths_player_%d", i)] = fmt.Sprintf("%d", p.KDA.Deaths)
+		r.Store(fmt.Sprintf("kills_player_%d", index), fmt.Sprintf("%d", p.KDA.Kills))
+		r.Store(fmt.Sprintf("assists_player_%d", index), fmt.Sprintf("%d", p.KDA.Assists))
+		r.Store(fmt.Sprintf("deaths_player_%d", index), fmt.Sprintf("%d", p.KDA.Deaths))
 
 		//gold
-		r[fmt.Sprintf("gold_player_%d", i)] = p.Stats.Gold.NetWorth().ToString()
+		r.Store(fmt.Sprintf("gold_player_%d", index), p.Stats.Gold.NetWorth().ToString())
 
 		//items
-		r[fmt.Sprintf("player_%d_item_0", i)] = p.Items.Item0.Name.GetName()
-		r[fmt.Sprintf("player_%d_item_1", i)] = p.Items.Item1.Name.GetName()
-		r[fmt.Sprintf("player_%d_item_2", i)] = p.Items.Item2.Name.GetName()
-		r[fmt.Sprintf("player_%d_item_3", i)] = p.Items.Item3.Name.GetName()
-		r[fmt.Sprintf("player_%d_item_4", i)] = p.Items.Item4.Name.GetName()
-		r[fmt.Sprintf("player_%d_item_5", i)] = p.Items.Item5.Name.GetName()
-		r[fmt.Sprintf("player_%d_item_neutral", i)] = p.Items.ItemNeutral.Name.GetName()
-		r[fmt.Sprintf("player_%d_backpack_0", i)] = p.Items.BackpackItem0.Name.GetName()
-		r[fmt.Sprintf("player_%d_backpack_1", i)] = p.Items.BackpackItem1.Name.GetName()
-		r[fmt.Sprintf("player_%d_backpack_2", i)] = p.Items.BackpackItem2.Name.GetName()
-		i++
+		r.Store(fmt.Sprintf("player_%d_item_0", index), p.Items.Item0.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_item_1", index), p.Items.Item1.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_item_2", index), p.Items.Item2.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_item_3", index), p.Items.Item3.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_item_4", index), p.Items.Item4.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_item_5", index), p.Items.Item5.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_item_neutral", index), p.Items.ItemNeutral.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_backpack_0", index), p.Items.BackpackItem0.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_backpack_1", index), p.Items.BackpackItem1.Name.GetName())
+		r.Store(fmt.Sprintf("player_%d_backpack_2", index), p.Items.BackpackItem2.Name.GetName())
 	})
 
 	if details.Victory.RadiantWon() {
-		r["radiant_win"] = "true"
-		r["dire_win"] = "false"
+		r.Store("radiant_win", "true")
+		r.Store("dire_win", "false")
 	} else {
-		r["radiant_win"] = "false"
-		r["dire_win"] = "true"
+		r.Store("radiant_win", "false")
+		r.Store("dire_win", "true")
 	}
-	r["radiant_score"] = fmt.Sprintf("%d", details.Score.RadiantScore)
-	r["dire_score"] = fmt.Sprintf("%d", details.Score.DireScore)
+	r.Store("radiant_score", fmt.Sprintf("%d", details.Score.RadiantScore))
+	r.Store("dire_score", fmt.Sprintf("%d", details.Score.DireScore))
 
 	//time label
 	if int64(details.Duration.Seconds())%60 > 10 {
-		r["match_length"] = fmt.Sprintf("%d:%d", int64(details.Duration.Minutes()), int64(details.Duration.Seconds())%60)
+		r.Store("match_length", fmt.Sprintf("%d:%d", int64(details.Duration.Minutes()), int64(details.Duration.Seconds())%60))
 	} else {
-		r["match_length"] = fmt.Sprintf("%d:%d0", int64(details.Duration.Minutes()), int64(details.Duration.Seconds())%60)
+		r.Store("match_length", fmt.Sprintf("%d:%d0", int64(details.Duration.Minutes()), int64(details.Duration.Seconds())%60))
 	}
 
 	//game date
-	r["game_date"] = fmt.Sprintf("%2.2d/%2.2d/%4.4d", match.StartTime.Month(), match.StartTime.Day(), match.StartTime.Year())
-	r["game_type"] = match.LobbyType.GetName()
+	r.Store("game_date", fmt.Sprintf("%2.2d/%2.2d/%4.4d", match.StartTime.Month(), match.StartTime.Day(), match.StartTime.Year()))
+	r.Store("game_type", match.LobbyType.GetName())
 
 	//items
 
-	return r
+	wait()
+
+	return (*Replacement)(&r)
 }
 
 func getMatchImgSmall(match dota2api.MatchSummary, steamId string) []image.Image {

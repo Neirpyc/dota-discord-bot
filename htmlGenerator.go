@@ -5,9 +5,10 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"sync"
 )
 
-type Replacement map[string]string
+type Replacement sync.Map
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -19,7 +20,7 @@ func RandStringRunes(n int) string {
 	return string(b)
 }
 
-func (r Replacement) applyTemplate(template string) (string, error) {
+func (r *Replacement) applyTemplate(template string) (string, error) {
 	var out *os.File
 	path := "tmp/" + RandStringRunes(64) + ".html"
 	for _, err := os.Stat("assets/" + path); os.IsExist(err); _, err = os.Stat("assets/" + path) {
@@ -38,10 +39,11 @@ func (r Replacement) applyTemplate(template string) (string, error) {
 		return "", err
 	}
 	content := string(contentByte)
-	for k, v := range r {
-		content = strings.Replace(content, "$"+k, v, -1)
-		content = strings.Replace(content, "$("+k+")", v, -1)
-	}
+	(*sync.Map)(r).Range(func(k, v interface{}) bool {
+		content = strings.Replace(content, "$"+k.(string), v.(string), -1)
+		content = strings.Replace(content, "$("+k.(string)+")", v.(string), -1)
+		return true
+	})
 	if _, err = out.Write([]byte(content)); err != nil {
 		return "", err
 	}
