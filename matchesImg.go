@@ -117,7 +117,7 @@ func getMatchImgMedium(match dota2api.MatchSummary, steamId string) []image.Imag
 }
 
 func createHeroesImagesList() {
-	Heroes.ForEachAsync(func(hero dota2api.Hero) {
+	Heroes.GoForEach(func(hero dota2api.Hero) {
 		sizes := []string{"lg", "sb", "full", "vert"}
 		for i, size := range sizes {
 
@@ -141,11 +141,11 @@ func createHeroesImagesList() {
 				L.Fatal(err)
 			}
 		}
-	})
+	})()
 }
 
 func createItemsImagesList() {
-	Items.ForEachAsync(func(item dota2api.Item) {
+	Items.GoForEach(func(item dota2api.Item) {
 		path := "assets/items/lg/" + item.Name.GetName() + ".png"
 		if _, err := os.Stat(path); !os.IsNotExist(err) && !Config.ForceReload {
 			return
@@ -165,5 +165,5 @@ func createItemsImagesList() {
 		if err != nil {
 			L.Fatal(err)
 		}
-	})
+	})()
 }

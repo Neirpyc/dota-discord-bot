@@ -72,7 +72,7 @@ func init() {
 	//connect to the dota api
 	go func(wg *sync.WaitGroup) {
 		var err error
-		D, err = dota2api.LoadConfig("config.yaml")
+		D, err = dota2api.LoadConfigFromFile("config.yaml")
 		if err != nil {
 			L.Fatal(err)
 		}
