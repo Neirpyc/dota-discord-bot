@@ -126,7 +126,7 @@ func createHeroesImagesList() {
 				continue
 			}
 
-			img, err0 := D.GetHeroImage(hero, i)
+			img, err0 := D.GetHeroImage(hero, dota2api.HeroImageSize(i))
 			if err0 != nil {
 				fmt.Println(hero)
 				L.Fatal(err0)
